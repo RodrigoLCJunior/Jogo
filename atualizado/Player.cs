@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI; //Ele inclui componentes como botões, textos, imagens, sliders, painéis e muito mais que são usados para construir a interface visual do jogo.
-
+using System;
 public class Player : MonoBehaviour
 {
     public Entity entity;
@@ -23,20 +23,52 @@ public class Player : MonoBehaviour
     [Header("Game Manager")]
     public GameManager manager;
 
-    [Header("Player UI")]
+    /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+    [Header("Player Shortcuts")]
+    public KeyCode attributesKey = KeyCode.C;
+
+    [Header("Player UI Panels")]
+    public GameObject attributesPanel;
 
     /* KALLEDRA - Rodrigo - 07/10/2024 - Morte do Player */
     [Header("Respawn")]
     public float respawnTime = 5;
     public GameObject prefab;
 
+    /* KALLEDRA - Rodrigo - 09/10/2024 - Level Up (Animação e Sound) */
+    [Header("Exp")]
+    public int currentExp;
+    public int expBase;
+    public int expLeft;
+    public float expMod;
+    public GameObject levelUpFX;
+    public AudioClip levelUpSound;
+    public int givePoints = 5; /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
 
+    [Header("Player UI")]
     //Slider é um Objeto padrão do Unity
     public Slider health;
     public Slider mana;
     public Slider stamina;
-
     public Slider exp;
+    /* KALLEDRA - Rodrigo - 10/10/2024 - Level Up (Animação, Sound e Texto) */
+    public Text expText;
+    public Text LevelText;
+    /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+    public Text strText;
+    public Text resText;
+    public Text intText;
+    public Text wilText;
+    public Button strPositiveBtn;
+    public Button resPositiveBtn;
+    public Button intPositiveBtn;
+    public Button wilPositiveBtn;
+    public Button strNegativeBtn;
+    public Button resNegativeBtn;
+    public Button intNegativeBtn;
+    public Button wilNegativeBtn;
+    public Text pointsTxt;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -55,6 +87,12 @@ public class Player : MonoBehaviour
         int def = manager.CalculateDefense(this, 5);
         */
 
+        /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+        if (Input.GetKeyDown(attributesKey)){
+            attributesPanel.SetActive(attributesPanel.activeSelf);        
+        }
+
+
         entity.currentHealth  = entity.maxHealth;
         entity.currentMana    = entity.maxMana;
         entity.currentStamina = entity.maxStamina;
@@ -68,12 +106,21 @@ public class Player : MonoBehaviour
         stamina.maxValue = entity.maxStamina;
         stamina.value    = stamina.maxValue;
 
-        exp.value = 0;
+        exp.value = currentExp; /* KALLEDRA - Rodrigo - 09/10/2024 - Level Up (Animação e Sound) */
+        exp.value = expLeft;    /* KALLEDRA - Rodrigo - 09/10/2024 - Level Up (Animação e Sound) */
+
+        /* KALLEDRA - Rodrigo - 10/10/2024 - Level Up (Animação, Sound e Texto) */
+        expText.text = string.Format("Exp: {0}/{1}", currentExp, expLeft);
+        LevelText.text = entity.level.ToString();
 
         //Iniciar Regen Health pela rotina;
         StartCoroutine(RegenHealth());
         StartCoroutine(RegenMana());
         StartCoroutine(RegenStamina());
+
+        /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+        UpdatePoint();
+        SetUpButtons();
     }
 
     private void Update()
@@ -91,10 +138,21 @@ public class Player : MonoBehaviour
             Die();
 
         }
+
+
         
         health.value  = entity.currentHealth;
         mana.value    = entity.currentMana;
         stamina.value = entity.currentStamina;
+
+        /* KALLEDRA - Rodrigo - 09/10/2024 - Level Up (Animação e Sound) */
+        exp.value = currentExp;
+        exp.maxValue = expLeft;
+
+        /* KALLEDRA - Rodrigo - 10/10/2024 - Level Up (Animação, Sound e Texto) */
+        expText.text = string.Format("Exp: {0}/{1}", currentExp, expLeft);
+        LevelText.text = entity.level.ToString();
+
 
         /*
         //Input.GetKeyDown(KeyCode.): Faz a ativação para usar uma tecla do teclado. Reduz o Proprio HP
@@ -109,6 +167,9 @@ public class Player : MonoBehaviour
         if(Input.GetKeyDown(KeyCode.M))
             entity.currentStamina -= 10;  
         */  
+
+        if(Input.GetKeyDown(KeyCode.M))
+            GainExp(currentExp += 50);
     } 
 
     IEnumerator RegenHealth()
@@ -184,4 +245,97 @@ public class Player : MonoBehaviour
         Destroy(this.gameObject);
     }
     
+    /* KALLEDRA - Rodrigo - 09/10/2024 - Level Up (Animação e Sound) */
+    /*public void GainExp(int amount)
+    {
+        Debug.Log(amount);
+        currentExp += amount;
+        if(currentExp >= expLeft)
+        {
+            LevelUp();
+        }
+    }*/
+
+    public void GainExp(int amount){
+        Debug.Log(amount);
+        currentExp += amount;
+    
+        // Verifica se a experiência atual é suficiente para passar de nível
+        while (currentExp >= expLeft)
+        {
+            LevelUp(); // Chama o método para subir de nível
+        }
+    }
+
+ 
+    public void LevelUp()
+    {
+        currentExp -= expLeft;
+        entity.level++;
+        entity.points += givePoints; /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+        UpdatePoint();               /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+ 
+        entity.currentHealth = entity.maxHealth;
+ 
+        float newExp = Mathf.Pow((float)expMod, entity.level);
+        expLeft = (int)Mathf.Floor((float)expBase * newExp);
+ 
+        entity.entityAudio.PlayOneShot(levelUpSound); // Vai ser chamado 1 Vez para o som
+        Instantiate(levelUpFX, this.gameObject.transform);
+    }
+
+    /* KALLEDRA - Rodrigo - 13/10/2024 - P. Atributos(Mostrar e Administrar) */
+    public void UpdatePoint(){
+        strText.text = entity.strength.ToString();
+        resText.text = entity.resistence.ToString();
+        intText.text = entity.inteligence.ToString();
+        wilText.text = entity.willpower.ToString();
+        pointsTxt.text = entity.points.ToString();
+    }
+
+    public void SetUpButtons(){
+        strPositiveBtn.onClick.AddListener(() => AddPoints(1));
+        resPositiveBtn.onClick.AddListener(() => AddPoints(2));
+        intPositiveBtn.onClick.AddListener(() => AddPoints(3));
+        wilPositiveBtn.onClick.AddListener(() => AddPoints(4));
+
+        strNegativeBtn.onClick.AddListener(() => RemovePoints(1));
+        resNegativeBtn.onClick.AddListener(() => RemovePoints(2));
+        intNegativeBtn.onClick.AddListener(() => RemovePoints(3));
+        wilNegativeBtn.onClick.AddListener(() => RemovePoints(4));
+    }
+
+
+    public void AddPoints(int index){
+        if(entity.points > 0){
+            if(index == 1){
+                entity.strength++;
+            }else if(index == 2){
+                entity.resistence++;
+            }else if(index == 3){
+                entity.inteligence++;
+            }else if(index == 4){
+                entity.willpower++;
+            }
+            entity.points--;
+            UpdatePoint();
+        }
+    }
+
+    public void RemovePoints(int index){
+        if(entity.points > 0){
+            if(index == 1 && entity.strength > 0){
+                entity.strength--;
+            }else if(index == 2 && entity.resistence > 0){
+                entity.resistence--;
+            }else if(index == 3 && entity.inteligence > 0){
+                entity.inteligence--;
+            }else if(index == 4 && entity.willpower > 0){
+                entity.willpower--;
+            }
+            entity.points++;
+            UpdatePoint();
+        }
+    }
+
 }
